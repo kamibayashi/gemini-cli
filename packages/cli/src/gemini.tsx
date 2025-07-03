@@ -18,6 +18,7 @@ import {
   LoadedSettings,
   loadSettings,
   SettingScope,
+  USER_SETTINGS_PATH,
 } from './config/settings.js';
 import { themeManager } from './ui/themes/theme-manager.js';
 import { getStartupWarnings } from './utils/startupWarnings.js';
@@ -141,12 +142,16 @@ export async function main() {
     if (sandboxConfig) {
       if (settings.merged.selectedAuthType) {
         // Validate authentication here because the sandbox will interfere with the Oauth2 web redirect.
-        const err = validateAuthMethod(settings.merged.selectedAuthType);
-        if (err) {
-          console.error(err);
+        try {
+          const err = validateAuthMethod(settings.merged.selectedAuthType);
+          if (err) {
+            throw new Error(err);
+          }
+          await config.refreshAuth(settings.merged.selectedAuthType);
+        } catch (err) {
+          console.error('Error authenticating:', err);
           process.exit(1);
         }
-        await config.refreshAuth(settings.merged.selectedAuthType);
       }
       await start_sandbox(sandboxConfig, memoryArgs);
       process.exit(0);
@@ -275,7 +280,7 @@ async function validateNonInterActiveAuth(
   // still expect that exists
   if (!selectedAuthType && !process.env.GEMINI_API_KEY) {
     console.error(
-      'Please set an Auth method in your .gemini/settings.json OR specify GEMINI_API_KEY env variable file before running',
+      `Please set an Auth method in your ${USER_SETTINGS_PATH} OR specify GEMINI_API_KEY env variable file before running`,
     );
     process.exit(1);
   }
